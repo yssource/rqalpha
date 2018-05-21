@@ -15,6 +15,9 @@
 # limitations under the License.
 
 
+import numpy as np
+
+
 class Tick(object):
     def __init__(self, order_book_id, tick):
         self._order_book_id = order_book_id
@@ -58,11 +61,17 @@ class Tick(object):
 
     @property
     def open_interest(self):
-        return self._tick['open_interest']
+        try:
+            return self._tick['open_interest']
+        except:
+            return np.nan
 
     @property
     def prev_settlement(self):
-        return self._tick['prev_settlement']
+        try:
+            return self._tick['prev_settlement']
+        except:
+            return np.nan
 
     @property
     def asks(self):
@@ -93,13 +102,19 @@ class Tick(object):
         except (KeyError, ValueError):
             return []
 
+    # backward compatible
+    ask = asks
+    bid = bids
+    ask_vol = ask_vols
+    bid_vol = bid_vols
+
     @property
     def limit_up(self):
-        return self._tick['limit_up']
+        return self._tick.get('limit_up', np.nan)
 
     @property
     def limit_down(self):
-        return self._tick['limit_down']
+        return self._tick.get('limit_down', np.nan)
 
     def __repr__(self):
         items = []
