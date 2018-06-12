@@ -28,7 +28,6 @@ import jsonpickle.ext.numpy as jsonpickle_numpy
 import pytz
 import requests
 import six
-import better_exceptions
 
 from rqalpha import const
 from rqalpha.api import helper as api_helper
@@ -329,9 +328,9 @@ def run(config, source_code=None, user_funcs=None):
 
 def _exception_handler(e):
     try:
-        better_exceptions.excepthook(e.error.exc_type, e.error.exc_val, e.error.exc_tb)
+        sys.excepthook(e.error.exc_type, e.error.exc_val, e.error.exc_tb)
     except Exception as e:
-        system_log.exception("better_exceptions fail")
+        system_log.exception("hook exception failed")
 
     user_system_log.error(e.error)
     if not is_user_exc(e.error.exc_val):
