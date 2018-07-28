@@ -17,6 +17,9 @@
 from rqalpha.model.base_position import BasePosition
 from rqalpha.environment import Environment
 from rqalpha.const import SIDE, POSITION_EFFECT, DEFAULT_ACCOUNT_TYPE
+from rqalpha.utils import is_valid_price
+
+from rqalpha.utils.i18n import gettext as _
 
 
 class FuturePosition(BasePosition):
@@ -366,6 +369,15 @@ class FuturePosition(BasePosition):
         return self._buy_transaction_cost + self._sell_transaction_cost
 
     # -- Function
+    def is_de_listed(self):
+        """
+        判断合约是否过期
+        """
+        instrument = Environment.get_instance().get_instrument(self._order_book_id)
+        current_date = Environment.get_instance().trading_dt
+        if instrument.de_listed_date is not None and current_date >= instrument.de_listed_date:
+            return True
+        return False
 
     def cal_close_today_amount(self, trade_amount, trade_side):
         if trade_side == SIDE.SELL:
@@ -376,9 +388,11 @@ class FuturePosition(BasePosition):
 
     def apply_settlement(self):
         env = Environment.get_instance()
-        data_proxy = env.data_proxy
-        trading_date = env.trading_dt.date()
-        settle_price = data_proxy.get_settle_price(self.order_book_id, trading_date)
+        settle_price = env.data_proxy.get_settle_price(self.order_book_id, env.trading_dt)
+        if not is_valid_price(settle_price):
+            raise RuntimeError(_("Settlement price {settle_price} of {order_book_id} is invalid".format(
+                settle_price=settle_price, order_book_id=self.order_book_id
+            )))
         self._buy_old_holding_list = [(settle_price, self.buy_quantity)]
         self._sell_old_holding_list = [(settle_price, self.sell_quantity)]
         self._buy_today_holding_list = []
@@ -395,6 +409,23 @@ class FuturePosition(BasePosition):
         return quantity * instrument.contract_multiplier * price * self.margin_rate
 
     def apply_trade(self, trade):
+        """
+        应用成交，并计算交易产生的现金变动。
+
+        开仓：
+        delta_cash
+        = -1 * margin
+        = -1 * quantity * contract_multiplier * price * margin_rate
+
+        平仓：
+        delta_cash
+        = old_margin - margin + delta_realized_pnl
+        = (sum of (cost_price * quantity) of closed trade) * contract_multiplier * margin_rate + delta_realized_pnl
+
+        :param trade: rqalpha.model.trade.Trade
+        :return: float
+        """
+        # close_trade: delta_cash = old_margin - margin + delta_realized_pnl
         trade_quantity = trade.last_quantity
         if trade.side == SIDE.BUY:
             if trade.position_effect == POSITION_EFFECT.OPEN:
@@ -424,6 +455,18 @@ class FuturePosition(BasePosition):
                 return old_margin - self.margin + delta_realized_pnl
 
     def _close_holding(self, trade):
+        """
+        应用平仓，并计算平仓盈亏
+
+        买平：
+        delta_realized_pnl = sum of ((trade_price - cost_price)* quantity) of closed trades * contract_multiplier
+
+        卖平：
+        delta_realized_pnl = sum of ((cost_price - trade_price)* quantity) of closed trades * contract_multiplier
+
+        :param trade: rqalpha.model.trade.Trade
+        :return: float
+        """
         left_quantity = trade.last_quantity
         delta = 0
         if trade.side == SIDE.BUY:

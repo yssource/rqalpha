@@ -22,7 +22,7 @@ from rqalpha.data import risk_free_helper
 from rqalpha.data.instrument_mixin import InstrumentMixin
 from rqalpha.data.trading_dates_mixin import TradingDatesMixin
 from rqalpha.model.bar import BarObject
-from rqalpha.model.snapshot import SnapshotObject
+from rqalpha.model.tick import TickObject
 from rqalpha.utils.py2 import lru_cache
 from rqalpha.utils.datetime_func import convert_int_to_datetime, convert_date_to_int
 
@@ -160,15 +160,28 @@ class DataProxy(InstrumentMixin, TradingDatesMixin):
         return self._data_source.history_ticks(instrument, count, dt)
 
     def current_snapshot(self, order_book_id, frequency, dt):
+
+        def tick_fields_for(ins):
+            _STOCK_FIELD_NAMES = [
+                'datetime', 'open', 'high', 'low', 'last', 'volume', 'total_turnover', 'prev_close',
+                'limit_up', 'limit_down'
+            ]
+            _FUTURE_FIELD_NAMES = _STOCK_FIELD_NAMES + ['open_interest', 'prev_settlement']
+
+            if ins.type == 'Future':
+                return _STOCK_FIELD_NAMES
+            else:
+                return _FUTURE_FIELD_NAMES
+
         instrument = self.instruments(order_book_id)
         if frequency == '1d':
             bar = self._data_source.get_bar(instrument, dt, '1d')
             if not bar:
-                return SnapshotObject(instrument, None, dt)
-            d = {k: bar[k] for k in SnapshotObject.fields_for_(instrument) if k in bar.dtype.names}
+                return None
+            d = {k: bar[k] for k in tick_fields_for(instrument) if k in bar.dtype.names}
             d['last'] = bar['close']
             d['prev_close'] = self._get_prev_close(order_book_id, dt)
-            return SnapshotObject(instrument, d)
+            return TickObject(instrument, d)
 
         return self._data_source.current_snapshot(instrument, frequency, dt)
 
@@ -177,7 +190,12 @@ class DataProxy(InstrumentMixin, TradingDatesMixin):
 
     def get_margin_info(self, order_book_id):
         instrument = self.instruments(order_book_id)
-        return self._data_source.get_margin_info(instrument)
+        margin_info = self._data_source.get_margin_info(instrument)
+
+        if "long_margin_ratio" in margin_info and np.isnan(margin_info["long_margin_ratio"]):
+            raise RuntimeError("Long margin ratio of {} is not supposed to be nan".format(order_book_id))
+
+        return margin_info
 
     def get_commission_info(self, order_book_id):
         instrument = self.instruments(order_book_id)

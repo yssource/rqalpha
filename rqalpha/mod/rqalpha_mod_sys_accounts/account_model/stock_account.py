@@ -18,6 +18,8 @@ import six
 import datetime
 from collections import defaultdict
 
+import numpy as np
+
 from rqalpha.model.base_account import BaseAccount
 from rqalpha.events import EVENT
 from rqalpha.environment import Environment
@@ -154,7 +156,7 @@ class StockAccount(BaseAccount):
         for position in list(self._positions.values()):
             order_book_id = position.order_book_id
             if position.is_de_listed() and position.quantity != 0:
-                if env.config.validator.cash_return_by_stock_delisted:
+                if env.config.mod.sys_accounts.cash_return_by_stock_delisted:
                     self._total_cash += position.market_value
                 user_system_log.warn(
                     _(u"{order_book_id} is expired, close all positions by system").format(order_book_id=order_book_id)
@@ -201,6 +203,9 @@ class StockAccount(BaseAccount):
                 continue
 
             dividend_per_share = dividend['dividend_cash_before_tax'] / dividend['round_lot']
+            if np.isnan(dividend_per_share):
+                raise RuntimeError("Dividend per share of {} is not supposed to be nan.".format(order_book_id))
+
             position.dividend_(dividend_per_share)
 
             config = Environment.get_instance().config

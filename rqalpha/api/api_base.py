@@ -191,7 +191,34 @@ def get_open_orders():
     verify_that("side").is_in([SIDE.BUY, SIDE.SELL])
 )
 def submit_order(id_or_ins, amount, side, price=None, position_effect=None):
+    """
+    通用下单函数，策略可以通过该函数自由选择参数下单。
 
+    :param id_or_ins: 下单标的物
+    :type id_or_ins: :class:`~Instrument` object | `str`
+
+    :param float amount: 下单量，需为正数
+
+    :param side: 多空方向，多（SIDE.BUY）或空（SIDE.SELL）
+    :type side: :class:`~SIDE` enum
+
+    :param float price: 下单价格，默认为None，表示市价单
+
+    :param position_effect: 开平方向，开仓（POSITION_EFFECT.OPEN），平仓（POSITION.CLOSE）或平今（POSITION_EFFECT.CLOSE_TODAY），交易股票不需要该参数
+    :type position_effect: :class:`~POSITION_EFFECT` enum
+
+    :return: :class:`~Order` object | None
+
+    :example:
+
+    .. code-block:: python
+
+        # 购买 2000 股的平安银行股票，并以市价单发送：
+        submit_order('000001.XSHE', 2000, SIDE.BUY)
+        # 平 10 份 RB1812 多方向的今仓，并以 4000 的价格发送限价单
+        submit_order('RB1812', 10, SIDE.SELL, price=4000, position_effect=POSITION_EFFECT.CLOSE_TODAY)
+
+    """
     order_book_id = assure_order_book_id(id_or_ins)
     env = Environment.get_instance()
     if env.config.base.run_type != RUN_TYPE.BACKTEST:
@@ -219,7 +246,7 @@ def submit_order(id_or_ins, amount, side, price=None, position_effect=None):
         order.set_frozen_price(market_price)
     if env.can_submit_order(order):
         env.broker.submit_order(order)
-    return order
+        return order
 
 
 @export_as_api
@@ -229,6 +256,7 @@ def submit_order(id_or_ins, amount, side, price=None, position_effect=None):
                                 EXECUTION_PHASE.AFTER_TRADING,
                                 EXECUTION_PHASE.SCHEDULED,
                                 EXECUTION_PHASE.GLOBAL)
+@apply_rules(verify_that('order').is_instance_of(Order))
 def cancel_order(order):
     """
     撤单
@@ -236,8 +264,6 @@ def cancel_order(order):
     :param order: 需要撤销的order对象
     :type order: :class:`~Order` object
     """
-    if order is None:
-        patch_user_exc(KeyError(_(u"Cancel order fail: invalid order id")))
     env = Environment.get_instance()
     if env.can_cancel_order(order):
         env.broker.cancel_order(order)

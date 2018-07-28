@@ -23,7 +23,7 @@ from rqalpha.const import DEFAULT_ACCOUNT_TYPE, EXECUTION_PHASE, SIDE, ORDER_TYP
 from rqalpha.environment import Environment
 from rqalpha.execution_context import ExecutionContext
 from rqalpha.model.instrument import Instrument
-from rqalpha.model.order import Order, OrderStyle, MarketOrder, LimitOrder
+from rqalpha.model.order import Order, MarketOrder, LimitOrder
 from rqalpha.utils import is_valid_price
 from rqalpha.utils.arg_checker import apply_rules, verify_that
 # noinspection PyUnresolvedReferences
@@ -78,7 +78,7 @@ def order_shares(id_or_ins, amount, price=None, style=None):
     :param style: 下单类型, 默认是市价单。目前支持的订单类型有 :class:`~LimitOrder` 和 :class:`~MarketOrder`
     :type style: `OrderStyle` object
 
-    :return: :class:`~Order` object
+    :return: :class:`~Order` object | None
 
     :example:
 
@@ -118,36 +118,39 @@ def order_shares(id_or_ins, amount, price=None, style=None):
 
     round_lot = int(env.get_instrument(order_book_id).round_lot)
 
-    try:
-        amount = int(Decimal(amount) / Decimal(round_lot)) * round_lot
-    except ValueError:
-        amount = 0
+    if side == SIDE.BUY or amount != env.portfolio.accounts[
+        DEFAULT_ACCOUNT_TYPE.STOCK.name
+    ].positions[order_book_id].sellable:
+        # 一次性申报卖出时可以卖散股
+        try:
+            amount = int(Decimal(amount) / Decimal(round_lot)) * round_lot
+        except ValueError:
+            amount = 0
 
     r_order = Order.__from_create__(order_book_id, amount, side, style, position_effect)
 
     if amount == 0:
         # 如果计算出来的下单量为0, 则不生成Order, 直接返回None
         # 因为很多策略会直接在handle_bar里面执行order_target_percent之类的函数，经常会出现下一个量为0的订单，如果这些订单都生成是没有意义的。
-        r_order.mark_rejected(_(u"Order Creation Failed: 0 order quantity"))
-        return r_order
+        user_system_log.warn(_(u"Order Creation Failed: 0 order quantity"))
+        return
     if r_order.type == ORDER_TYPE.MARKET:
         r_order.set_frozen_price(price)
     if env.can_submit_order(r_order):
         env.broker.submit_order(r_order)
-
-    return r_order
+        return r_order
 
 
 def _sell_all_stock(order_book_id, amount, style):
     env = Environment.get_instance()
     order = Order.__from_create__(order_book_id, amount, SIDE.SELL, style, POSITION_EFFECT.CLOSE)
     if amount == 0:
-        order.mark_rejected(_(u"Order Creation Failed: 0 order quantity"))
-        return order
+        user_system_log.warn(_(u"Order Creation Failed: 0 order quantity"))
+        return
 
     if env.can_submit_order(order):
         env.broker.submit_order(order)
-    return order
+        return order
 
 
 @export_as_api
@@ -172,7 +175,7 @@ def order_lots(id_or_ins, amount, price=None, style=None):
     :param style: 下单类型, 默认是市价单。目前支持的订单类型有 :class:`~LimitOrder` 和 :class:`~MarketOrder`
     :type style: `OrderStyle` object
 
-    :return: :class:`~Order` object
+    :return: :class:`~Order` object | None
 
     :example:
 
@@ -215,7 +218,7 @@ def order_value(id_or_ins, cash_amount, price=None, style=None):
     :param style: 下单类型, 默认是市价单。目前支持的订单类型有 :class:`~LimitOrder` 和 :class:`~MarketOrder`
     :type style: `OrderStyle` object
 
-    :return: :class:`~Order` object
+    :return: :class:`~Order` object | None
 
     :example:
 
@@ -244,15 +247,14 @@ def order_value(id_or_ins, cash_amount, price=None, style=None):
         return
 
     account = env.portfolio.accounts[DEFAULT_ACCOUNT_TYPE.STOCK.name]
-    round_lot = int(env.get_instrument(order_book_id).round_lot)
 
     if cash_amount > 0:
         cash_amount = min(cash_amount, account.cash)
 
     if isinstance(style, MarketOrder):
-        amount = int(Decimal(cash_amount) / Decimal(price) / Decimal(round_lot)) * round_lot
+        amount = int(Decimal(cash_amount) / Decimal(price))
     else:
-        amount = int(Decimal(cash_amount) / Decimal(style.get_limit_price()) / Decimal(round_lot)) * round_lot
+        amount = int(Decimal(cash_amount) / Decimal(style.get_limit_price()))
 
     # if the cash_amount is larger than you current security’s position,
     # then it will sell all shares of this security.
@@ -285,7 +287,7 @@ def order_percent(id_or_ins, percent, price=None, style=None):
     :param style: 下单类型, 默认是市价单。目前支持的订单类型有 :class:`~LimitOrder` 和 :class:`~MarketOrder`
     :type style: `OrderStyle` object
 
-    :return: :class:`~Order` object
+    :return: :class:`~Order` object | None
 
     :example:
 
@@ -324,7 +326,7 @@ def order_target_value(id_or_ins, cash_amount, price=None, style=None):
     :param style: 下单类型, 默认是市价单。目前支持的订单类型有 :class:`~LimitOrder` 和 :class:`~MarketOrder`
     :type style: `OrderStyle` object
 
-    :return: :class:`~Order` object
+    :return: :class:`~Order` object | None
 
     :example:
 
@@ -377,7 +379,7 @@ def order_target_percent(id_or_ins, percent, price=None, style=None):
     :param style: 下单类型, 默认是市价单。目前支持的订单类型有 :class:`~LimitOrder` 和 :class:`~MarketOrder`
     :type style: `OrderStyle` object
 
-    :return: :class:`~Order` object
+    :return: :class:`~Order` object | None
 
     :example:
 
