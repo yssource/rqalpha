@@ -168,16 +168,7 @@ def write_csv(path, fields):
         for row in reader:
             old_test_times.append(row)
 
-    if performance_path is None:
-        if len(old_test_times) != 0 and time_spend > float(old_test_times[-1]["time_spend"]) * 1.1:
-            system_log.error("代码咋写的，太慢了！")
-            system_log.error("上次测试用例执行的总时长为：" + old_test_times[-1]["time_spend"])
-            system_log.error("本次测试用例执行的总时长增长为: " + str(time_spend))
-        else:
-            with open(path, 'a') as csv_file:
-                writer = csv.DictWriter(csv_file, fieldnames=fields)
-                writer.writerow({'date_time': end_time, 'time_spend': time_spend})
-    else:
+    if performance_path is not None:
         if 0 < len(old_test_times) < 5 and time_spend > float(sum(float(i['time_spend']) for i in old_test_times)) / len(old_test_times) * 1.1:
             print('Average time of last 5 runs:', float(sum(float(i['time_spend']) for i in old_test_times))/len(old_test_times))
             print('Now time spend:', time_spend)
@@ -191,6 +182,14 @@ def write_csv(path, fields):
             with open(path, 'a') as csv_file:
                 writer = csv.DictWriter(csv_file, fieldnames=fields)
                 writer.writerow({'date_time': end_time, 'time_spend': time_spend})
+
+
+def run_unit_tests():
+    from unittest import TextTestRunner
+
+    from tests.unittest import load_tests
+
+    TextTestRunner(verbosity=2).run(load_tests())
 
 
 if __name__ == '__main__':
@@ -217,12 +216,16 @@ if __name__ == '__main__':
             end_time = datetime.now()
 
         elif sys.argv[1] == 'performance':
-            test_api()
+            # test_api()
             test_strategy()
             end_time = datetime.now()
             performance_path = sys.argv[2]
             time_spend = (end_time - start_time).total_seconds()
             write_csv(performance_path, field_names)
+
+        elif sys.argv[1] == 'unittest':
+            run_unit_tests()
+            end_time = datetime.now()
 
         else:
             target_file = sys.argv[1]
@@ -230,6 +233,7 @@ if __name__ == '__main__':
             end_time = datetime.now()
 
     else:
+        run_unit_tests()
         test_api()
         error_count = run_tests()
         end_time = datetime.now()

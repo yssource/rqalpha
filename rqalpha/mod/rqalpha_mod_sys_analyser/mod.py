@@ -13,15 +13,15 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
-import six
 import os
 import pickle
-import numpy as np
-import pandas as pd
-
+import numbers
 from collections import defaultdict
 from enum import Enum
+
+import six
+import numpy as np
+import pandas as pd
 
 from rqalpha.const import EXIT_CODE, DEFAULT_ACCOUNT_TYPE
 from rqalpha.events import EVENT
@@ -89,8 +89,8 @@ class AnalyserMod(AbstractMod):
         if isinstance(value, Enum):
             return value.name
 
-        if isinstance(value, (float, np.float64, np.float32, np.float16, np.float)):
-            return round(value, ndigits)
+        if isinstance(value, numbers.Real):
+            return round(float(value), ndigits)
 
         return value
 
@@ -185,9 +185,14 @@ class AnalyserMod(AbstractMod):
         for account_type, starting_cash in six.iteritems(self._env.config.base.accounts):
             summary[account_type] = starting_cash
 
-        risk = Risk(np.array(self._portfolio_daily_returns), np.array(self._benchmark_daily_returns),
-                    data_proxy.get_risk_free_rate(self._env.config.base.start_date, self._env.config.base.end_date),
-                    (self._env.config.base.end_date - self._env.config.base.start_date).days + 1)
+        risk = Risk(
+            np.array(self._portfolio_daily_returns),
+            np.array(self._benchmark_daily_returns),
+            data_proxy.get_risk_free_rate(
+                self._env.config.base.start_date, self._env.config.base.end_date
+            ),
+            (self._env.config.base.natural_end_date - self._env.config.base.natural_start_date).days + 1
+        )
         summary.update({
             'alpha': self._safe_convert(risk.alpha, 3),
             'beta': self._safe_convert(risk.beta, 3),

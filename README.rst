@@ -91,10 +91,9 @@ Mod名                      说明
 `sys_progress`_           【系统模块】在控制台输出当前策略的回测进度。
 `sys_risk`_               【系统模块】对订单进行事前风控校验
 `sys_simulation`_         【系统模块】支持回测、撮合、滑点控制等
-`sys_stock_realtime`_     【系统模块】Demo 模块，用于展示如何接入自有行情进行回测/模拟/实盘
+`stock_realtime`_         【第三方模块】Demo 模块，用于展示如何接入自有行情进行回测/模拟/实盘
 `sentry`_                 【第三方模块】集成 sentry 的扩展，实现错误日志全自动采集、处理
 `tushare`_                【第三方模块】Demo Mod，用于展示如何通过tushare 获取实时Bar数据并组装以供RQAlpha使用
-`shipane`_                【第三方模块】集成实盘易SDK，用于对接股票实盘跟单交易
 ======================    ==================================================================================
 
 如果您基于 RQAlpha 进行了 Mod 扩展，欢迎告知我们，在审核通过后，会在 Mod 列表中添加您的 Mod 信息和链接。
@@ -112,51 +111,6 @@ Mod名                      说明
 *   无缝对接RQAlpha;
 
 *目前RQData正在限额内测中，内测期用户可免费限流使用*， `点击链接免费开通`_ 。
-
-Feature Status
-============================
-
-*   VNPY 对接 --> `vnpy`_
-
-    * ✅ 扩展VNPY_Gateway
-    * ✅ 实盘交易对接
-    * ✅ 数据源对接
-    * ✅ 事件源对接
-
-*   Tushare 对接
-
-    * ✅ 数据源对接 --> `rqalpha_mod_sys_stock_realtime`_
-    * ✅ 合成分钟线 --> `rqalpha_mod_tushare`_
-
-*   Tick 相关支持
-
-    * ✅ TICK 相关事件支持 --> `EVENT.PRE_TICK` | `EVENT.TICK` | `EVENT.POST_TICK`
-    * ✅ handle_tick 函数支持
-
-*   Mod Manager --> `通过 Mod 扩展 RQAlpha`_
-
-    * ✅ 定义 Mod 编写规范, workflow && Doc
-    * ✅ 提供 Mod Demo && Tutorial
-    * ✅ 提供 `rqalpha install xx_mod` 等命令 加载第三方 Mod
-
-*   Third-party Tools Integration
-
-    * ✅ 集成 Sentry --> `sentry`_
-
-*   i18n
-
-    * 🚫 English Doc
-
-*   Support Options
-
-    * 🚫 OptionAccount
-    * 🚫 OptionPosition
-
-*   Support BitCoin
-
-    * 🚫 BitcoinAccount
-    * 🚫 BitcoinPosition
-
 
 加入开发
 ============================
@@ -207,7 +161,7 @@ Feature Status
 .. _sys_progress: https://github.com/ricequant/rqalpha/blob/master/rqalpha/mod/rqalpha_mod_sys_progress/README.rst
 .. _sys_risk: https://github.com/ricequant/rqalpha/blob/master/rqalpha/mod/rqalpha_mod_sys_risk/README.rst
 .. _sys_simulation: https://github.com/ricequant/rqalpha/blob/master/rqalpha/mod/rqalpha_mod_sys_simulation/README.rst
-.. _sys_stock_realtime: https://github.com/ricequant/rqalpha/blob/master/rqalpha/mod/rqalpha_mod_sys_stock_realtime/README.rst
+.. _stock_realtime: https://github.com/ricequant/rqalpha-mod-stock-realtime
 .. _vnpy: https://github.com/ricequant/rqalpha-mod-vnpy
 .. _sentry: https://github.com/ricequant/rqalpha-mod-sentry
 .. _tushare: https://github.com/ricequant/rqalpha-mod-tushare

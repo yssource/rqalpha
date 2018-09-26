@@ -46,6 +46,7 @@ from rqalpha.mod import ModHandler
 from rqalpha.model.bar import BarMap
 from rqalpha.model.portfolio import Portfolio
 from rqalpha.model.base_position import Positions
+from rqalpha.const import RUN_TYPE
 from rqalpha.utils import create_custom_exception, run_with_user_log_disabled, scheduler as mod_scheduler
 from rqalpha.utils.exception import CustomException, is_user_exc, patch_user_exc
 from rqalpha.utils.i18n import gettext as _
@@ -64,6 +65,11 @@ def _adjust_start_date(config, data_proxy):
 
     config.base.start_date = max(start, config.base.start_date)
     config.base.end_date = min(end, config.base.end_date)
+
+    # for annualized risk indicator calculation
+    config.base.natural_start_date = config.base.start_date
+    config.base.natural_end_date = config.base.end_date
+
     config.base.trading_calendar = data_proxy.get_trading_dates(config.base.start_date, config.base.end_date)
     if len(config.base.trading_calendar) == 0:
         raise patch_user_exc(
@@ -115,12 +121,15 @@ def create_benchmark_portfolio(env):
     return Portfolio(start_date, 1, total_cash, accounts)
 
 
-def create_base_scope():
-    import copy
+def create_base_scope(copy_scope=False):
     from rqalpha.utils.logger import user_print, user_log
-
     from . import user_module
-    scope = copy.copy(user_module.__dict__)
+
+    if copy_scope:
+        from copy import copy
+        scope = copy(user_module.__dict__)
+    else:
+        scope = user_module.__dict__
     scope.update({
         "logger": user_log,
         "print": user_print,
@@ -220,6 +229,12 @@ def run(config, source_code=None, user_funcs=None):
         broker = env.broker
         assert broker is not None
         env.portfolio = broker.get_portfolio()
+
+        try:
+            env.booking = broker.get_booking()
+        except NotImplementedError:
+            pass
+
         env.benchmark_portfolio = create_benchmark_portfolio(env)
 
         event_source = env.event_source
@@ -237,7 +252,7 @@ def run(config, source_code=None, user_funcs=None):
 
         env.event_bus.publish_event(Event(EVENT.POST_SYSTEM_INIT))
 
-        scope = create_base_scope()
+        scope = create_base_scope(config.base.run_type == RUN_TYPE.BACKTEST)
         scope.update({
             "g": env.global_vars
         })
