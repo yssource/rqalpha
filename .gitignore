@@ -21,3 +21,7 @@ persist/
 rqalpha_test_coverage_report/
 .tmp.pkl
 .mypy_cache/
+
+GPATH
+GRTAGS
+GTAGS
