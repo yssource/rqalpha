@@ -19,6 +19,7 @@ from __future__ import division
 import datetime
 import inspect
 import sys
+import types
 from collections import Iterable
 from functools import wraps
 from types import FunctionType
@@ -513,7 +514,13 @@ def history_bars(order_book_id, bar_count, frequency, fields=None, skip_suspende
 
     if frequency == '1d':
         sys_frequency = Environment.get_instance().config.base.frequency
-        if ((sys_frequency in ['1m', 'tick'] and not include_now) or ExecutionContext.phase() == EXECUTION_PHASE.BEFORE_TRADING):
+        if ((
+                sys_frequency in ['1m', 'tick'] and
+                not include_now and
+                ExecutionContext.phase() != EXECUTION_PHASE.AFTER_TRADING
+        ) or (
+                ExecutionContext.phase() == EXECUTION_PHASE.BEFORE_TRADING
+        )):
             dt = env.data_proxy.get_previous_trading_date(env.trading_dt.date())
             # 当 EXECUTION_PHASE.BEFORE_TRADING 的时候，强制 include_now 为 False
             include_now = False
@@ -607,7 +614,7 @@ def all_instruments(type=None, date=None):
 
     result = env.data_proxy.all_instruments(types, dt)
     if types is not None and len(types) == 1:
-        return pd.DataFrame([i.__dict__ for i in result])
+        return pd.DataFrame([i._ins_dict for i in result])
 
     return pd.DataFrame(
         [[i.order_book_id, i.symbol, i.type, i.listed_date, i.de_listed_date] for i in result],
@@ -845,8 +852,8 @@ def get_dividend(order_book_id, start_date, *args, **kwargs):
 @ExecutionContext.enforce_phase(EXECUTION_PHASE.ON_BAR,
                                 EXECUTION_PHASE.ON_TICK,
                                 EXECUTION_PHASE.SCHEDULED)
-@apply_rules(verify_that('series_name').is_instance_of(str),
-             verify_that('value').is_number())
+@apply_rules(verify_that('series_name', pre_check=True).is_instance_of(str),
+             verify_that('value', pre_check=True).is_number())
 def plot(series_name, value):
     """
     Add a point to custom series.
@@ -922,3 +929,13 @@ def get_position(order_book_id, direction):
         raise RuntimeError(_("Booking has not been set, please check your broker configuration."))
 
     return booking.get_position(order_book_id, direction)
+
+
+@export_as_api
+@apply_rules(
+    verify_that('event_type').is_instance_of(EVENT),
+    verify_that('handler').is_instance_of(types.FunctionType)
+)
+def subscribe_event(event_type, handler):
+    env = Environment.get_instance()
+    env.event_bus.add_listener(event_type, handler)

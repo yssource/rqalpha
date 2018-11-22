@@ -108,6 +108,7 @@ class AnalyserMod(AbstractMod):
     ACCOUNT_FIELDS_MAP = {
         DEFAULT_ACCOUNT_TYPE.STOCK.name: ['dividend_receivable'],
         DEFAULT_ACCOUNT_TYPE.FUTURE.name: ['holding_pnl', 'realized_pnl', 'daily_pnl', 'margin'],
+        DEFAULT_ACCOUNT_TYPE.BOND.name: [],
     }
 
     def _to_account_record(self, date, account):
@@ -132,6 +133,9 @@ class AnalyserMod(AbstractMod):
             'margin', 'margin_rate', 'contract_multiplier', 'last_price',
             'buy_pnl', 'buy_margin', 'buy_quantity', 'buy_avg_open_price',
             'sell_pnl', 'sell_margin', 'sell_quantity', 'sell_avg_open_price'
+        ],
+        DEFAULT_ACCOUNT_TYPE.BOND.name: [
+            'quantity', 'last_price', 'avg_price', 'market_value'
         ],
     }
 
@@ -241,7 +245,7 @@ class AnalyserMod(AbstractMod):
             benchmark_portfolios = b_df.set_index('date').sort_index()
             result_dict['benchmark_portfolio'] = benchmark_portfolios
 
-        if self._env.plot_store is not None:
+        if not self._env.get_plot_store().empty:
             plots = self._env.get_plot_store().get_plots()
             plots_items = defaultdict(dict)
             for series_name, value_dict in six.iteritems(plots):
@@ -250,6 +254,7 @@ class AnalyserMod(AbstractMod):
                     plots_items[date]["date"] = date
 
             df = pd.DataFrame([dict_data for date, dict_data in six.iteritems(plots_items)])
+
             df["date"] = pd.to_datetime(df["date"])
             df = df.set_index("date").sort_index()
             result_dict["plots"] = df
