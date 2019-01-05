@@ -10,7 +10,6 @@ else:
     from mock import MagicMock
 
 
-
 class RQAlphaFixture(object):
     def init_fixture(self):
         pass
@@ -62,7 +61,6 @@ class TempDirFixture(RQAlphaFixture):
             from tempfile import TemporaryDirectory
         else:
             from backports.tempfile import TemporaryDirectory
-
 
         super(TempDirFixture, self).init_fixture()
         self.temp_dir = TemporaryDirectory()
@@ -119,27 +117,6 @@ class BaseDataSourceFixture(TempDirFixture, EnvironmentFixture):
         self.base_data_source = BaseDataSource(self.temp_dir.name)
 
 
-class DataProxyFixture(BaseDataSourceFixture):
-    def __init__(self, *args, **kwargs):
-        super(DataProxyFixture, self).__init__(*args, **kwargs)
-        self.data_source = None
-
-    def init_fixture(self):
-        from rqalpha.data.data_proxy import DataProxy
-
-        super(DataProxyFixture, self).init_fixture()
-        if not self.data_source:
-            self.data_source = self.base_data_source
-        self.env.set_data_proxy(DataProxy(self.data_source))
-
-    @contextmanager
-    def mock_data_proxy_method(self, name, mock_method):
-        origin_method = getattr(self.env.data_proxy, name)
-        setattr(self.env.data_proxy, name, mock_method)
-        yield
-        setattr(self.env.data_proxy, name, origin_method)
-
-
 class BarDictPriceBoardFixture(EnvironmentFixture):
     def __init__(self, *args, **kwargs):
         super(BarDictPriceBoardFixture, self).__init__(*args, **kwargs)
@@ -152,6 +129,35 @@ class BarDictPriceBoardFixture(EnvironmentFixture):
 
         self.price_board = BarDictPriceBoard()
         self.env.set_price_board(self.price_board)
+
+
+class DataProxyFixture(BaseDataSourceFixture, BarDictPriceBoardFixture):
+    def __init__(self, *args, **kwargs):
+        super(DataProxyFixture, self).__init__(*args, **kwargs)
+        self.data_proxy = None
+        self.data_source = None
+
+    def init_fixture(self):
+        from rqalpha.data.data_proxy import DataProxy
+
+        super(DataProxyFixture, self).init_fixture()
+        if not self.data_source:
+            self.data_source = self.base_data_source
+        self.data_proxy = DataProxy(self.data_source, self.price_board)
+        self.env.set_data_proxy(self.data_proxy)
+        try:
+            self.env.config.base.trading_calendar = self.data_proxy.get_trading_dates(
+                self.env.config.base.start_date, self.env.config.base.end_date
+            )
+        except AttributeError:
+            pass
+
+    @contextmanager
+    def mock_data_proxy_method(self, name, mock_method):
+        origin_method = getattr(self.env.data_proxy, name)
+        setattr(self.env.data_proxy, name, mock_method)
+        yield
+        setattr(self.env.data_proxy, name, origin_method)
 
 
 class MatcherFixture(EnvironmentFixture):
@@ -183,20 +189,16 @@ class MatcherFixture(EnvironmentFixture):
         self.matcher.update(datetime(2018, 8, 16, 11, 5), datetime(2018, 8, 16, 11, 5))
 
 
-class BookingFixture(EnvironmentFixture):
+class BookingFixture(DataProxyFixture):
     def __init__(self, *args, **kwargs):
         super(BookingFixture, self).__init__(*args, **kwargs)
 
-        from rqalpha.model.booking import BookingPositions
-        from rqalpha.const import POSITION_DIRECTION
-
-        self.long_positions = BookingPositions(POSITION_DIRECTION.LONG)
-        self.short_positions = BookingPositions(POSITION_DIRECTION.SHORT)
         self.booking = None
 
     def init_fixture(self):
         from rqalpha.model.booking import Booking
         
         super(BookingFixture, self).init_fixture()
-        
-        self.booking = Booking(self.long_positions, self.short_positions)
+        self.booking = Booking()
+
+

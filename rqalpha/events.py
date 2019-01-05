@@ -30,18 +30,22 @@ class Event(object):
 class EventBus(object):
     def __init__(self):
         self._listeners = defaultdict(list)
+        self._user_listeners = defaultdict(list)
 
-    def add_listener(self, event_type, listener):
-        self._listeners[event_type].append(listener)
+    def add_listener(self, event_type, listener, user=False):
+        (self._user_listeners if user else self._listeners)[event_type].append(listener)
 
-    def prepend_listener(self, event_type, listener):
-        self._listeners[event_type].insert(0, listener)
+    def prepend_listener(self, event_type, listener, user=False):
+        (self._user_listeners if user else self._listeners)[event_type].insert(0, listener)
 
     def publish_event(self, event):
         for listener in self._listeners[event.event_type]:
             # 如果返回 True ，那么消息不再传递下去
             if listener(event):
                 break
+
+        for listener in self._user_listeners[event.event_type]:
+            listener(event)
 
 
 class EVENT(Enum):
@@ -151,6 +155,9 @@ class EVENT(Enum):
 
     # 心跳事件，用于触发定时任务
     HEARTBEAT = 'heartbeat'
+
+    # 用户事件，接受用户发送的信息
+    USER = 'user'
 
 
 def parse_event(event_str):

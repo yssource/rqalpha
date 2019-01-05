@@ -156,9 +156,12 @@ class Portfolio(object):
         """
         [float] 累计年化收益率
         """
-        current_date = Environment.get_instance().trading_dt.date()
-        natural_start_date = Environment.get_instance().config.base.natural_start_date
-        return self.unit_net_value ** (DAYS_CNT.DAYS_A_YEAR / float((current_date - natural_start_date).days + 1)) - 1
+        if self.unit_net_value <= 0:
+            return -1
+
+        env = Environment.get_instance()
+        date_count = float(env.data_proxy.count_trading_dates(env.config.base.start_date, env.trading_dt.date()))
+        return self.unit_net_value ** (DAYS_CNT.TRADING_DAYS_A_YEAR / date_count) - 1
 
     @property
     def total_value(self):

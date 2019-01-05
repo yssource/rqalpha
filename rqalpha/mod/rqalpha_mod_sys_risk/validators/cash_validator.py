@@ -48,9 +48,7 @@ class CashValidator(AbstractFrontendValidator):
             return True
 
         instrument = self._env.get_instrument(order.order_book_id)
-        margin_info = self._env.data_proxy.get_margin_info(order.order_book_id)
-        margin_rate = margin_info['long_margin_ratio' if order.side == 'BUY' else 'short_margin_ratio']
-        margin = order.frozen_price * order.quantity * instrument.contract_multiplier * margin_rate
+        margin = order.frozen_price * order.quantity * instrument.contract_multiplier * instrument.margin_rate
         cost_money = margin * self._env.config.base.margin_multiplier
         cost_money += self._env.get_order_transaction_cost(DEFAULT_ACCOUNT_TYPE.FUTURE, order)
         if cost_money <= account.cash:
@@ -66,13 +64,15 @@ class CashValidator(AbstractFrontendValidator):
         )
         return False
 
-    def can_submit_order(self, account, order):
+    def can_submit_order(self, order, account=None):
+        if account is None:
+            return True
         if account.type == DEFAULT_ACCOUNT_TYPE.STOCK.name:
             return self._stock_validator(account, order)
         elif account.type == DEFAULT_ACCOUNT_TYPE.FUTURE.name:
             return self._future_validator(account, order)
         else:
-            raise NotImplementedError
+            return True
 
-    def can_cancel_order(self, account, order):
+    def can_cancel_order(self, order, account=None):
         return True

@@ -131,19 +131,6 @@ class AbstractAccount(with_metaclass(abc.ABCMeta)):
         raise NotImplementedError
 
 
-class AbstractBookingPosition(with_metaclass(abc.ABCMeta)):
-
-    @property
-    @abc.abstractmethod
-    def order_book_id(self):
-        raise NotImplementedError
-
-    @property
-    @abc.abstractmethod
-    def direction(self):
-        raise NotImplementedError
-
-
 class AbstractPosition(with_metaclass(abc.ABCMeta)):
     """
     仓位接口，主要用于构建仓位信息
@@ -468,15 +455,6 @@ class AbstractDataSource(object):
         """
         raise NotImplementedError
 
-    def get_margin_info(self, instrument):
-        """
-        获取合约的保证金数据
-
-        :param instrument: 合约对象
-        :return: dict
-        """
-        raise NotImplementedError
-
     def get_commission_info(self, instrument):
         """
         获取合约的手续费信息
@@ -643,18 +621,24 @@ class Persistable(with_metaclass(abc.ABCMeta)):
 
 
 class AbstractFrontendValidator(with_metaclass(abc.ABCMeta)):
+    """
+    前端风控接口，下撤单请求在到达券商代理模块前会经过前端风控。
+    """
     @abc.abstractmethod
-    def can_submit_order(self, account, order):
+    def can_submit_order(self, order, account=None):
         # FIXME: need a better name
         raise NotImplementedError
 
     @abc.abstractmethod
-    def can_cancel_order(self, account, order):
+    def can_cancel_order(self, order, account=None):
         # FIXME: need a better name
         raise NotImplementedError
 
 
 class AbstractTransactionCostDecider((with_metaclass(abc.ABCMeta))):
+    """
+    订单税费计算接口，通过实现次接口可以定义不同市场、不同合约的个性化税费计算逻辑。
+    """
     @abc.abstractmethod
     def get_trade_tax(self, trade):
         raise NotImplementedError
@@ -665,5 +649,26 @@ class AbstractTransactionCostDecider((with_metaclass(abc.ABCMeta))):
 
     @abc.abstractmethod
     def get_order_transaction_cost(self, order):
+        raise NotImplementedError
+
+
+class AbstractBenchmarkProvider(with_metaclass(abc.ABCMeta)):
+    """
+    基准组合模块，通过实现该接口可以定义基准组合的实现逻辑，基准组合的收益率将被用于画图及策略分析
+    """
+    @property
+    @abc.abstractmethod
+    def daily_returns(self):
+        """
+        [float] 当前最新一天的日收益
+        """
+        raise NotImplementedError
+
+    @property
+    @abc.abstractmethod
+    def total_returns(self):
+        """
+        [float] 累计收益率
+        """
         raise NotImplementedError
 

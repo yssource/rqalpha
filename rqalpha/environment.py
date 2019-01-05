@@ -43,12 +43,14 @@ class Environment(object):
         self.event_bus = EventBus()
         self.portfolio = None
         self.booking = None
+        self.benchmark_provider = None
         self.benchmark_portfolio = None
         self.calendar_dt = None
         self.trading_dt = None
         self.mod_dict = None
         self.plot_store = None
         self.bar_dict = None
+        self.user_strategy = None
         self._frontend_validators = []
         self._account_model_dict = {}
         self._position_model_dict = {}
@@ -119,18 +121,24 @@ class Environment(object):
     def can_submit_order(self, order):
         if Environment.get_instance().config.extra.is_hold:
             return False
-        account = self.get_account(order.order_book_id)
+        try:
+            account = self.get_account(order.order_book_id)
+        except NotImplementedError:
+            account = None
         for v in self._frontend_validators:
-            if not v.can_submit_order(account, order):
+            if not v.can_submit_order(order, account):
                 return False
         return True
 
     def can_cancel_order(self, order):
         if order.is_final():
             return False
-        account = self.get_account(order.order_book_id)
+        try:
+            account = self.get_account(order.order_book_id)
+        except NotImplementedError:
+            account = None
         for v in self._frontend_validators:
-            if not v.can_cancel_order(account, order):
+            if not v.can_cancel_order(order, account):
                 return False
         return True
 
@@ -156,7 +164,7 @@ class Environment(object):
         return self.bar_dict[order_book_id]
 
     def get_last_price(self, order_book_id):
-        return float(self.price_board.get_last_price(order_book_id))
+        return self.data_proxy.get_last_price(order_book_id)
 
     def get_instrument(self, order_book_id):
         return self.data_proxy.instruments(order_book_id)
@@ -166,6 +174,8 @@ class Environment(object):
         return get_account_type(order_book_id)
 
     def get_account(self, order_book_id):
+        if not self.portfolio:
+            raise NotImplementedError
         account_type = get_account_type(order_book_id)
         return self.portfolio.accounts[account_type]
 
@@ -192,4 +202,5 @@ class Environment(object):
     def get_order_transaction_cost(self, account_type, order):
         return self._get_transaction_cost_decider(account_type).get_order_transaction_cost(order)
 
-
+    def set_benchmark_provider(self, benchmark_provider):
+        self.benchmark_provider = benchmark_provider

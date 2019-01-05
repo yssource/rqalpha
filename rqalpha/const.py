@@ -54,7 +54,6 @@ class DEFAULT_ACCOUNT_TYPE(CustomEnum):
     *   目前暂时不添加其他 DEFAULT_ACCOUNT_TYPE 类型，如果需要增加自定义账户及类型，请参考 https://github.com/ricequant/rqalpha/issues/160
     """
     TOTAL = 0
-    BENCHMARK = 1
     # 股票
     STOCK = 2
     # 期货
@@ -208,4 +207,4 @@ class CURRENCY(CustomEnum):
 UNDERLYING_SYMBOL_PATTERN = "([a-zA-Z]+)\d+"
 
 NIGHT_TRADING_NS = ["CU", "AL", "ZN", "PB", "SN", "NI", "RB", "HC", "BU", "RU", "AU", "AG", "Y", "M", "A", "B", "P",
-                    "J", "JM", "I", "CF", "SR", "OI", "MA", "ZC", "FG", "RM", "CY", "TA", "SC"]
+                    "J", "JM", "I", "CF", "SR", "OI", "MA", "ZC", "FG", "RM", "CY", "TA", "SC", "SP"]

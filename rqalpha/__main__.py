@@ -89,7 +89,6 @@ def update_bundle(data_bundle_path, locale):
 @click.option('-f', '--strategy-file', 'base__strategy_file', type=click.Path(exists=True))
 @click.option('-s', '--start-date', 'base__start_date', type=Date())
 @click.option('-e', '--end-date', 'base__end_date', type=Date())
-@click.option('-bm', '--benchmark', 'base__benchmark', type=click.STRING, default=None)
 @click.option('-mm', '--margin-multiplier', 'base__margin_multiplier', type=click.FLOAT)
 @click.option('-a', '--account', 'base__accounts', nargs=2, multiple=True, help="set account type with starting cash")
 @click.option('--position', 'base__init_positions', type=click.STRING, help="set init position")
@@ -268,7 +267,7 @@ def mod(cmd, params):
                     *   必须以 `rqalpha-mod-` 来开头，比如 `rqalpha-mod-xxx-yyy`
                     *   对应import的库名必须要 `rqalpha_mod_` 来开头，并且需要和包名后半部分一致，但是 `-` 需要替换为 `_`, 比如 `rqalpha_mod_xxx_yyy`
                 """
-                mod_name = _detect_package_name_from_dir()
+                mod_name = _detect_package_name_from_dir(params)
                 mod_name = mod_name.replace("-", "_").replace("rqalpha_mod_", "")
                 mod_list.append(mod_name)
 
@@ -380,8 +379,8 @@ def mod(cmd, params):
     locals()[cmd](params)
 
 
-def _detect_package_name_from_dir():
-    setup_path = os.path.join(os.path.abspath('.'), 'setup.py')
+def _detect_package_name_from_dir(params):
+    setup_path = os.path.join(os.path.abspath(params[-1]), 'setup.py')
     if not os.path.exists(setup_path):
         return None
     return os.path.split(os.path.dirname(setup_path))[1]
