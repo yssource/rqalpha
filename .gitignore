@@ -27,5 +27,3 @@ GPATH
 GRTAGS
 GTAGS
 .venv/
-Pipfile
-Pipfile.lock 

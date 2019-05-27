@@ -1,0 +1,212 @@
+{
+    "_meta": {
+        "hash": {
+            "sha256": "04ab8376ea84b8b5094600bf16316c91029adc37a4c3fd0bd161741942982305"
+        },
+        "pipfile-spec": 6,
+        "requires": {
+            "python_version": "3.7"
+        },
+        "sources": [
+            {
+                "name": "pypi",
+                "url": "https://pypi.org/simple",
+                "verify_ssl": true
+            }
+        ]
+    },
+    "default": {
+        "epc": {
+            "index": "pypi",
+            "version": "==0.0.5"
+        },
+        "importmagic": {
+            "index": "pypi",
+            "version": "==0.1.7"
+        },
+        "sexpdata": {
+            "version": "==0.0.3"
+        }
+    },
+    "develop": {
+        "atomicwrites": {
+            "version": "==1.3.0"
+        },
+        "attrs": {
+            "markers": "python_version >= '2.7' and python_version not in '3.0, 3.1, 3.2, 3.3'",
+            "version": "==19.1.0"
+        },
+        "backports.functools-lru-cache": {
+            "markers": "python_version >= '2.6'",
+            "version": "==1.5"
+        },
+        "backports.tempfile": {
+            "index": "pypi",
+            "version": "==1.0"
+        },
+        "backports.weakref": {
+            "version": "==1.0.post1"
+        },
+        "bcolz": {
+            "index": "pypi",
+            "version": "==1.2.0"
+        },
+        "certifi": {
+            "version": "==2019.3.9"
+        },
+        "chardet": {
+            "version": "==3.0.4"
+        },
+        "click": {
+            "index": "pypi",
+            "version": "==7.0"
+        },
+        "cycler": {
+            "version": "==0.10.0"
+        },
+        "decorator": {
+            "version": "==4.4.0"
+        },
+        "dill": {
+            "index": "pypi",
+            "version": "==0.2.5"
+        },
+        "enum34": {
+            "index": "pypi",
+            "version": "==1.1.6"
+        },
+        "fastcache": {
+            "index": "pypi",
+            "version": "==1.1.0"
+        },
+        "funcsigs": {
+            "index": "pypi",
+            "version": "==1.0.2"
+        },
+        "idna": {
+            "version": "==2.8"
+        },
+        "ipython": {
+            "index": "pypi",
+            "version": "==5.3.0"
+        },
+        "ipython-genutils": {
+            "version": "==0.2.0"
+        },
+        "jsonpickle": {
+            "index": "pypi",
+            "version": "==0.9.4"
+        },
+        "kiwisolver": {
+            "markers": "python_version >= '2.7' and python_version not in '3.0, 3.1, 3.2, 3.3'",
+            "version": "==1.1.0"
+        },
+        "logbook": {
+            "index": "pypi",
+            "version": "==1.4.3"
+        },
+        "matplotlib": {
+            "index": "pypi",
+            "version": "==2.2.3"
+        },
+        "mock": {
+            "index": "pypi",
+            "version": "==3.0.5"
+        },
+        "more-itertools": {
+            "markers": "python_version > '2.7'",
+            "version": "==7.0.0"
+        },
+        "numpy": {
+            "index": "pypi",
+            "version": "==1.16.3"
+        },
+        "pandas": {
+            "index": "pypi",
+            "version": "==0.24.2"
+        },
+        "pexpect": {
+            "markers": "sys_platform != 'win32'",
+            "version": "==4.7.0"
+        },
+        "pickleshare": {
+            "version": "==0.7.5"
+        },
+        "pluggy": {
+            "markers": "python_version >= '2.7' and python_version not in '3.0, 3.1, 3.2, 3.3'",
+            "version": "==0.11.0"
+        },
+        "prompt-toolkit": {
+            "version": "==1.0.16"
+        },
+        "ptyprocess": {
+            "version": "==0.6.0"
+        },
+        "py": {
+            "markers": "python_version >= '2.7' and python_version not in '3.0, 3.1, 3.2, 3.3'",
+            "version": "==1.8.0"
+        },
+        "pygments": {
+            "markers": "python_version >= '2.7' and python_version not in '3.0, 3.1, 3.2, 3.3'",
+            "version": "==2.4.1"
+        },
+        "pyparsing": {
+            "markers": "python_version >= '2.6' and python_version not in '3.0, 3.1, 3.2, 3.3'",
+            "version": "==2.4.0"
+        },
+        "pytest": {
+            "index": "pypi",
+            "version": "==4.5.0"
+        },
+        "python-dateutil": {
+            "index": "pypi",
+            "version": "==2.8.0"
+        },
+        "pytz": {
+            "index": "pypi",
+            "version": "==2019.1"
+        },
+        "pyyaml": {
+            "index": "pypi",
+            "version": "==5.1"
+        },
+        "requests": {
+            "index": "pypi",
+            "version": "==2.22.0"
+        },
+        "simplegeneric": {
+            "version": "==0.8.1"
+        },
+        "simplejson": {
+            "index": "pypi",
+            "version": "==3.16.0"
+        },
+        "six": {
+            "index": "pypi",
+            "version": "==1.12.0"
+        },
+        "subprocess32": {
+            "markers": "python_version >= '2.6' and python_version not in '3.0, 3.1, 3.2, 3.3' and python_version < '4'",
+            "version": "==3.5.4"
+        },
+        "tabulate": {
+            "index": "pypi",
+            "version": "==0.8.3"
+        },
+        "traitlets": {
+            "version": "==4.3.2"
+        },
+        "urllib3": {
+            "markers": "python_version >= '2.7' and python_version not in '3.0, 3.1, 3.2, 3.3' and python_version < '4'",
+            "version": "==1.25.3"
+        },
+        "wcwidth": {
+            "version": "==0.1.7"
+        },
+        "xlsxwriter": {
+            "editable": true,
+            "index": "pypi",
+            "path": "."
+        }
+    }
+}
