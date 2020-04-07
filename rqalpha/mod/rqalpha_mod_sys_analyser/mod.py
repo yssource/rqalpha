@@ -1,32 +1,40 @@
 # -*- coding: utf-8 -*-
+# 版权所有 2019 深圳米筐科技有限公司（下称“米筐科技”）
 #
-# Copyright 2017 Ricequant, Inc
+# 除非遵守当前许可，否则不得使用本软件。
 #
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
+#     * 非商业用途（非商业用途指个人出于非商业目的使用本软件，或者高校、研究所等非营利机构出于教育、科研等目的使用本软件）：
+#         遵守 Apache License 2.0（下称“Apache 2.0 许可”），
+#         您可以在以下位置获得 Apache 2.0 许可的副本：http://www.apache.org/licenses/LICENSE-2.0。
+#         除非法律有要求或以书面形式达成协议，否则本软件分发时需保持当前许可“原样”不变，且不得附加任何条件。
 #
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
+#     * 商业用途（商业用途指个人出于任何商业目的使用本软件，或者法人或其他组织出于任何目的使用本软件）：
+#         未经米筐科技授权，任何个人不得出于任何商业目的使用本软件（包括但不限于向第三方提供、销售、出租、出借、转让本软件、
+#         本软件的衍生产品、引用或借鉴了本软件功能或源代码的产品或服务），任何法人或其他组织不得出于任何目的使用本软件，
+#         否则米筐科技有权追究相应的知识产权侵权责任。
+#         在此前提下，对本软件的使用同样需要遵守 Apache 2.0 许可，Apache 2.0 许可与本许可冲突之处，以本许可为准。
+#         详细的授权流程，请联系 public@ricequant.com 获取。
+
 import os
 import pickle
 import numbers
+import datetime
 from collections import defaultdict
 from enum import Enum
+from typing import Dict, Optional
 
 import six
 import numpy as np
 import pandas as pd
+from rqrisk import Risk
 
-from rqalpha.const import EXIT_CODE, DEFAULT_ACCOUNT_TYPE
+from rqalpha.const import EXIT_CODE, DEFAULT_ACCOUNT_TYPE, INSTRUMENT_TYPE, POSITION_DIRECTION
 from rqalpha.events import EVENT
-from rqalpha.interface import AbstractMod
-from rqalpha.utils.risk import Risk
+from rqalpha.interface import AbstractMod, AbstractPosition
+from rqalpha.utils.i18n import gettext as _
+from rqalpha.utils import INST_TYPE_IN_STOCK_ACCOUNT
+from rqalpha.utils.logger import user_system_log
+from rqalpha.const import DAYS_CNT
 
 
 class AnalyserMod(AbstractMod):
@@ -45,20 +53,37 @@ class AnalyserMod(AbstractMod):
         self._benchmark_daily_returns = []
         self._portfolio_daily_returns = []
 
+        self._benchmark = None  # type: Optional[str]
+
     def start_up(self, env, mod_config):
         self._env = env
         self._mod_config = mod_config
-        self._enabled = (self._mod_config.record or self._mod_config.plot or self._mod_config.output_file or
-                         self._mod_config.plot_save_file or self._mod_config.report_save_path)
-        env.event_bus.add_listener(EVENT.POST_SYSTEM_INIT, self._subscribe_events)
+        self._enabled = (
+            mod_config.record or mod_config.plot or mod_config.output_file or
+            mod_config.plot_save_file or mod_config.report_save_path or mod_config.bechmark
+        )
+        if self._enabled:
+            env.event_bus.add_listener(EVENT.POST_SYSTEM_INIT, self._subscribe_events)
+
+            if not mod_config.benchmark:
+                if getattr(env.config.base, "benchmark", None):
+                    user_system_log.warning(
+                        _("config 'base.benchmark' is deprecated, use 'mod.sys_analyser.benchmark instead'")
+                    )
+                    mod_config.benchmark = getattr(env.config.base, "benchmark")
+            if mod_config.benchmark:
+                self._benchmark = mod_config.benchmark
+
+    def get_benchmark_daily_returns(self):
+        if self._benchmark is None:
+            return 0.0
+        bar = self._env.data_proxy.get_bar(self._benchmark, self._env.calendar_dt, '1d')
+        return bar.close / bar.prev_close - 1.0
 
     def _subscribe_events(self, _):
-        if not self._enabled:
-            return
         self._env.event_bus.add_listener(EVENT.TRADE, self._collect_trade)
         self._env.event_bus.add_listener(EVENT.ORDER_CREATION_PASS, self._collect_order)
-        if self._env.portfolio:
-            self._env.event_bus.add_listener(EVENT.POST_AFTER_TRADING, self._collect_daily)
+        self._env.event_bus.add_listener(EVENT.POST_AFTER_TRADING, self._collect_daily)
 
     def _collect_trade(self, event):
         self._trades.append(self._to_trade_record(event.trade))
@@ -69,21 +94,25 @@ class AnalyserMod(AbstractMod):
     def _collect_daily(self, _):
         date = self._env.calendar_dt.date()
         portfolio = self._env.portfolio
-        benchmark_portfolio = self._env.benchmark_portfolio
 
         self._portfolio_daily_returns.append(portfolio.daily_returns)
         self._total_portfolios.append(self._to_portfolio_record(date, portfolio))
-
-        if benchmark_portfolio is None:
-            self._benchmark_daily_returns.append(0)
-        else:
-            self._benchmark_daily_returns.append(benchmark_portfolio.daily_returns)
-            self._total_benchmark_portfolios.append(self._to_portfolio_record(date, benchmark_portfolio))
+        self._benchmark_daily_returns.append(self.get_benchmark_daily_returns())
+        self._total_benchmark_portfolios.append({
+            "date": date,
+            "unit_net_value": (np.array(self._benchmark_daily_returns) + 1).prod()
+        })
 
         for account_type, account in six.iteritems(self._env.portfolio.accounts):
             self._sub_accounts[account_type].append(self._to_account_record(date, account))
-            for order_book_id, position in six.iteritems(account.positions):
-                self._positions[account_type].append(self._to_position_record(date, order_book_id, position))
+            pos_dict = {}
+            for pos in account.get_positions():
+                pos_dict.setdefault(pos.order_book_id, {})[pos.direction] = pos
+
+            for order_book_id, pos in pos_dict.items():
+                self._positions[account_type].append(self._to_position_record(
+                    date, order_book_id, pos[POSITION_DIRECTION.LONG], pos[POSITION_DIRECTION.SHORT]
+                ))
 
     def _symbol(self, order_book_id):
         return self._env.data_proxy.instruments(order_book_id).symbol
@@ -110,9 +139,10 @@ class AnalyserMod(AbstractMod):
         }
 
     ACCOUNT_FIELDS_MAP = {
-        DEFAULT_ACCOUNT_TYPE.STOCK.name: ['dividend_receivable'],
-        DEFAULT_ACCOUNT_TYPE.FUTURE.name: ['holding_pnl', 'realized_pnl', 'daily_pnl', 'margin'],
-        DEFAULT_ACCOUNT_TYPE.BOND.name: [],
+        DEFAULT_ACCOUNT_TYPE.STOCK: [],
+        DEFAULT_ACCOUNT_TYPE.FUTURE: ['position_pnl', 'trading_pnl', 'daily_pnl', 'margin'],
+        DEFAULT_ACCOUNT_TYPE.OPTION: ['position_pnl', 'trading_pnl', 'daily_pnl', 'margin'],
+        DEFAULT_ACCOUNT_TYPE.BOND: [],
     }
 
     def _to_account_record(self, date, account):
@@ -129,29 +159,27 @@ class AnalyserMod(AbstractMod):
 
         return data
 
-    POSITION_FIELDS_MAP = {
-        DEFAULT_ACCOUNT_TYPE.STOCK.name: [
-            'quantity', 'last_price', 'avg_price', 'market_value'
-        ],
-        DEFAULT_ACCOUNT_TYPE.FUTURE.name: [
-            'margin', 'margin_rate', 'contract_multiplier', 'last_price',
-            'buy_pnl', 'buy_margin', 'buy_quantity', 'buy_avg_open_price',
-            'sell_pnl', 'sell_margin', 'sell_quantity', 'sell_avg_open_price'
-        ],
-        DEFAULT_ACCOUNT_TYPE.BOND.name: [
-            'quantity', 'last_price', 'avg_price', 'market_value'
-        ],
-    }
+    LONG_ONLY_INS_TYPE = INST_TYPE_IN_STOCK_ACCOUNT + [INSTRUMENT_TYPE.CONVERTIBLE, INSTRUMENT_TYPE.BOND]
 
-    def _to_position_record(self, date, order_book_id, position):
+    def _to_position_record(self, date, order_book_id, long, short):
+        # type: (datetime.date, str, AbstractPosition, AbstractPosition) -> Dict
+        instrument = self._env.data_proxy.instruments(order_book_id)
         data = {
             'order_book_id': order_book_id,
             'symbol': self._symbol(order_book_id),
             'date': date,
         }
-
-        for f in self.POSITION_FIELDS_MAP[position.type]:
-            data[f] = self._safe_convert(getattr(position, f))
+        if instrument.type in self.LONG_ONLY_INS_TYPE:
+            for field in ['quantity', 'last_price', 'avg_price', 'market_value']:
+                data[field] = self._safe_convert(getattr(long, field, None))
+        else:
+            for field in ['margin', 'contract_multiplier', 'last_price']:
+                data[field] = self._safe_convert(getattr(long, field))
+            for direction_prefix, pos in (("buy", long), ("sell", short)):
+                data[direction_prefix + "_pnl"] = self._safe_convert(getattr(pos, "pnl", None))
+                data[direction_prefix + "_margin"] = self._safe_convert(pos.margin)
+                data[direction_prefix + "_quantity"] = self._safe_convert(pos.quantity)
+                data[direction_prefix + "_avg_open_price"] = self._safe_convert(getattr(pos, "avg_price", None))
         return data
 
     def _to_trade_record(self, trade):
@@ -197,8 +225,7 @@ class AnalyserMod(AbstractMod):
             np.array(self._benchmark_daily_returns),
             data_proxy.get_risk_free_rate(
                 self._env.config.base.start_date, self._env.config.base.end_date
-            ),
-            self._env.data_proxy.count_trading_dates(self._env.config.base.start_date, self._env.config.base.end_date)
+            )
         )
         summary.update({
             'alpha': self._safe_convert(risk.alpha, 3),
@@ -221,19 +248,19 @@ class AnalyserMod(AbstractMod):
             'units': self._env.portfolio.units,
         })
 
-        if self._env.benchmark_portfolio:
-            summary['benchmark_total_returns'] = self._safe_convert(self._env.benchmark_portfolio.total_returns)
-            summary['benchmark_annualized_returns'] = self._safe_convert(
-                self._env.benchmark_portfolio.annualized_returns)
+        if self._benchmark:
+            benchmark_total_returns = (np.array(self._benchmark_daily_returns) + 1.0).prod() - 1.0
+            summary['benchmark_total_returns'] = self._safe_convert(benchmark_total_returns)
+            date_count = len(self._benchmark_daily_returns)
+            benchmark_annualized_returns = (benchmark_total_returns + 1) ** (DAYS_CNT.TRADING_DAYS_A_YEAR / date_count) - 1
+            summary['benchmark_annualized_returns'] = self._safe_convert(benchmark_annualized_returns)
 
         trades = pd.DataFrame(self._trades)
         if 'datetime' in trades.columns:
             trades = trades.set_index('datetime')
 
         df = pd.DataFrame(self._total_portfolios)
-
         df['date'] = pd.to_datetime(df['date'])
-
         total_portfolios = df.set_index('date').sort_index()
 
         result_dict = {
@@ -242,10 +269,10 @@ class AnalyserMod(AbstractMod):
             'portfolio': total_portfolios,
         }
 
-        if self._env.benchmark_portfolio is not None:
-            b_df = pd.DataFrame(self._total_benchmark_portfolios)
+        if self._benchmark:
+            df = pd.DataFrame(self._total_benchmark_portfolios)
             df['date'] = pd.to_datetime(df['date'])
-            benchmark_portfolios = b_df.set_index('date').sort_index()
+            benchmark_portfolios = df.set_index('date').sort_index()
             result_dict['benchmark_portfolio'] = benchmark_portfolios
 
         if not self._env.get_plot_store().empty:
@@ -257,7 +284,6 @@ class AnalyserMod(AbstractMod):
                     plots_items[date]["date"] = date
 
             df = pd.DataFrame([dict_data for date, dict_data in six.iteritems(plots_items)])
-
             df["date"] = pd.to_datetime(df["date"])
             df = df.set_index("date").sort_index()
             result_dict["plots"] = df
@@ -267,15 +293,15 @@ class AnalyserMod(AbstractMod):
             portfolios_list = self._sub_accounts[account_type]
             df = pd.DataFrame(portfolios_list)
             df["date"] = pd.to_datetime(df["date"])
-            account_df = df.set_index("date").sort_index()
-            result_dict["{}_account".format(account_name)] = account_df
+            df = df.set_index("date").sort_index()
+            result_dict["{}_account".format(account_name)] = df
 
             positions_list = self._positions[account_type]
-            positions_df = pd.DataFrame(positions_list)
-            if "date" in positions_df.columns:
-                positions_df["date"] = pd.to_datetime(positions_df["date"])
-                positions_df = positions_df.set_index("date").sort_index()
-            result_dict["{}_positions".format(account_name)] = positions_df
+            df = pd.DataFrame(positions_list)
+            if "date" in df.columns:
+                df["date"] = pd.to_datetime(df["date"])
+                df = df.set_index("date").sort_index()
+            result_dict["{}_positions".format(account_name)] = df
 
         if self._mod_config.output_file:
             with open(self._mod_config.output_file, 'wb') as f:
